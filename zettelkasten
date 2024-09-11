@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Directories
+DAILY_DIR="$ZETTELKASTEN/periodic-notes/daily-notes"
+REFERENCE_DIR="$ZETTELKASTEN/reference"
+
+# Dates
+today=$(date +"%Y-%m-%d")
+tomorrow=$(date -d "tomorrow" +"%Y-%m-%d")
+yesterday=$(date -d "yesterday" +"%Y-%m-%d")
+
+# File path for today's daily note
+file="$DAILY_DIR/$today.md"
+
+# Function to list all directories and files within a given directory
+list_reference_dirs() {
+    echo "Current folders and files in reference directory:"
+    find "$REFERENCE_DIR" -mindepth 1 -maxdepth 3 -not -path "*/.obsidian/*" -printf "%P\n"
+}
+
+# Create a new daily note
+new_daily_note() {
+    touch "$file"
+    cat <<EOF >"$file"
+# $today
+
+[[$yesterday]] - [[$tomorrow]]
+
+## Habits
+
+
+
+## Log
+EOF
+}
+
+# Create a new reference note
+new_reference_note() {
+    list_reference_dirs
+    read -p "Enter note name (use slashes for subfolders): " ref_name
+    ref_file="$REFERENCE_DIR/$ref_name.md"
+
+    # If there's a slash at the end, treat it as a directory and create it
+    if [[ "$ref_name" == */ ]]; then
+        ref_file="${REFERENCE_DIR}/${ref_name%/}/new-note.md"
+        mkdir -p "${ref_file%/*}"
+    else
+        mkdir -p "${ref_file%/*}"
+    fi
+
+    touch "$ref_file"
+    echo "# ${ref_name##*/}" > "$ref_file"
+}
+
+# Search through reference directory using fzf
+search_reference() {
+    selected_file=$(find "$REFERENCE_DIR" -type f | fzf --prompt "Search through notes: ")
+    if [[ -n "$selected_file" ]]; then
+        nvim "$selected_file"
+    else
+        echo "No file selected."
+    fi
+}
+
+# Main menu
+choose_option() {
+    echo "Select an option:"
+    options=("Create Daily Note" "Create Reference Note" "Search Notes")
+    select opt in "${options[@]}"; do
+        case $opt in
+            "Create Daily Note")
+                if [ ! -f "$file" ]; then
+                    new_daily_note
+                fi
+                nvim "$file" -c :NoNeckPain
+                break
+                ;;
+            "Create Reference Note")
+                new_reference_note
+                nvim "$ref_file" -c :NoNeckPain
+                break
+                ;;
+            "Search Notes")
+                search_reference
+                break
+                ;;
+            *)
+                echo "Invalid option. Exiting."
+                exit 1
+                ;;
+        esac
+    done
+}
+
+choose_option
